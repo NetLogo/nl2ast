@@ -27,7 +27,7 @@ object AST {
 
     val proc = procDef.procedure
 
-    Procedure( proc.displayName
+    Procedure( proc.name
              , proc.args
              , if (proc.isReporter) "wildcard" else "unit"
              , proc.agentClassString
