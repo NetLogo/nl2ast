@@ -105,7 +105,6 @@ object NL2AST {
     // "forward reference" errors --Jason B. (9/4/25)
     implicit lazy val reporterProcCallFormat = Json.writes[ReporterProcCall]
     implicit lazy val reporterCallFormat     = Json.writes[ReporterCall]
-    implicit lazy val constantFormat         = Json.writes[Constant]
     implicit lazy val valueFormat            = Json.writes[Value]
     implicit lazy val booleanValFormat       = Json.writes[BooleanVal]
     implicit lazy val numberValFormat        = Json.writes[NumberVal]

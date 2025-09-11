@@ -15,13 +15,12 @@ private[nl2ast] case class ReporterBlock(reporterApp: ReporterApp) extends Expre
 private[nl2ast] sealed trait ReporterApp extends Expression
 private[nl2ast] case class ReporterProcCall(name: String, args: Seq[Expression]) extends ReporterApp
 private[nl2ast] case class ReporterCall(name: String, args: Seq[Expression]) extends ReporterApp
-private[nl2ast] case class Constant(value: Value) extends ReporterApp
 
-private[nl2ast] sealed trait Value
+private[nl2ast] sealed trait Value extends ReporterApp
 private[nl2ast] case class BooleanVal(value: Boolean) extends Value
 private[nl2ast] case class NumberVal(value: Double) extends Value
 private[nl2ast] case class StringVal(value: String) extends Value
-private[nl2ast] case class ListVal(items: Seq[Value]) extends Value
+private[nl2ast] case class ListVal(items: Array[Value]) extends Value
 private[nl2ast] case object NobodyVal extends Value
 
 private[nl2ast] sealed trait Statement
@@ -121,8 +120,7 @@ object AST {
   private def convertReporterApp(rApp: NLRApp): ReporterApp =
     rApp.reporter match {
       case const: Const =>
-        val value = convertLiteral(const.value)
-        Constant(value)
+        convertLiteral(const.value)
       case _: CallReport =>
         ReporterProcCall(rApp.reporter.displayName, rApp.args.map(convertExpression))
       case _ =>
@@ -134,7 +132,7 @@ object AST {
       case b: JBoolean => BooleanVal(b)
       case x: JDouble  => NumberVal(x)
       case s: String   => StringVal(s)
-      case l: LogoList => ListVal(l.toVector.map(convertLiteral))
+      case l: LogoList => ListVal(l.toVector.map(convertLiteral).toArray)
       case Nobody      => NobodyVal
       case x =>
         throw new Exception(s"We don't know how to convert this type of reporter yet: ${x.getClass.getName} | $x")
