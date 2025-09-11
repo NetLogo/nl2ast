@@ -98,10 +98,8 @@ object AST {
 
   private def convertMultiVar(ml: AbstractLet): Var =
     ml match {
-      case l: Let =>
-        makeLetVar(l)
-      case ml: Multilet =>
-        MultiVar(ml.lets.map(convertMultiVar))
+      case l: Let       => makeLetVar(l)
+      case ml: Multilet => MultiVar(ml.lets.map(convertMultiVar))
     }
 
   private def makeLetVar(l: Let): SingleVar = {
@@ -119,12 +117,9 @@ object AST {
 
   private def convertReporterApp(rApp: NLRApp): ReporterApp =
     rApp.reporter match {
-      case const: Const =>
-        convertLiteral(const.value)
-      case _: CallReport =>
-        ReporterProcCall(rApp.reporter.displayName, rApp.args.map(convertExpression))
-      case _ =>
-        ReporterCall(rApp.reporter.displayName, rApp.args.map(convertExpression))
+      case const: Const      => convertLiteral(const.value)
+      case _:     CallReport => ReporterProcCall(rApp.reporter.displayName, rApp.args.map(convertExpression))
+      case _                 => ReporterCall(    rApp.reporter.displayName, rApp.args.map(convertExpression))
     }
 
   private def convertLiteral(literal: AnyRef): Value =
