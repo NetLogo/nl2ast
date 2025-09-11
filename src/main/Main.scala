@@ -112,8 +112,6 @@ object NL2AST {
     implicit lazy val stringValFormat        = Json.writes[StringVal]
     implicit lazy val listValFormat          = Json.writes[ListVal]
     implicit lazy val nobodyValFormat        = Json.writes[NobodyVal.type]
-    implicit lazy val commandFormat          = Json.writes[Command]
-    implicit lazy val reporterFormat         = Json.writes[Reporter]
     implicit lazy val cBlockFormat           = Json.writes[CommandBlock]
     implicit lazy val rBlockFormat           = Json.writes[ReporterBlock]
     implicit lazy val rAppFormat             = Json.writes[ReporterApp]

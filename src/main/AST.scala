@@ -8,16 +8,13 @@ import org.nlogo.core.{ CommandBlock => NLCBlock, Expression => NLExpr, LogoList
 import org.nlogo.core.prim.{ _abstractlet => AbstractLet, _callreport => CallReport, _const => Const
                            , _let => Let, _multiassignnest => MultiletNest, _multilet => Multilet }
 
-private[nl2ast] case class Command(name: String)
-private[nl2ast] case class Reporter(name: String)
-
 private[nl2ast] sealed trait Expression
 private[nl2ast] case class CommandBlock(statements: Seq[Statement]) extends Expression
 private[nl2ast] case class ReporterBlock(reporterApp: ReporterApp) extends Expression
 
 private[nl2ast] sealed trait ReporterApp extends Expression
-private[nl2ast] case class ReporterProcCall(reporter: Reporter, args: Seq[Expression]) extends ReporterApp
-private[nl2ast] case class ReporterCall(reporter: Reporter, args: Seq[Expression]) extends ReporterApp
+private[nl2ast] case class ReporterProcCall(name: String, args: Seq[Expression]) extends ReporterApp
+private[nl2ast] case class ReporterCall(name: String, args: Seq[Expression]) extends ReporterApp
 private[nl2ast] case class Constant(value: Value) extends ReporterApp
 
 private[nl2ast] sealed trait Value
@@ -30,7 +27,7 @@ private[nl2ast] case object NobodyVal extends Value
 private[nl2ast] sealed trait Statement
 private[nl2ast] case class LetBinding(varName: String, value: Expression) extends Statement
 private[nl2ast] case class MultiletBinding(vars: Seq[Var], value: Expression) extends Statement
-private[nl2ast] case class CommandApp(command: Command, args: Seq[Expression]) extends Statement
+private[nl2ast] case class CommandApp(name: String, args: Seq[Expression]) extends Statement
 
 private[nl2ast] sealed trait Var
 private[nl2ast] case class SingleVar(name: String) extends Var
@@ -90,7 +87,7 @@ object AST {
       case _: MultiletNest =>
         None // Ignore this; I don't know why it's in the AST --Jason B. (9/11/25)
       case _      =>
-        Option((CommandApp(Command(statement.command.displayName), args), Set()))
+        Option((CommandApp(statement.command.displayName, args), Set()))
     }
   }
 
@@ -127,9 +124,9 @@ object AST {
         val value = convertLiteral(const.value)
         Constant(value)
       case _: CallReport =>
-        ReporterProcCall(Reporter(rApp.reporter.displayName), rApp.args.map(convertExpression))
+        ReporterProcCall(rApp.reporter.displayName, rApp.args.map(convertExpression))
       case _ =>
-        ReporterCall(Reporter(rApp.reporter.displayName), rApp.args.map(convertExpression))
+        ReporterCall(rApp.reporter.displayName, rApp.args.map(convertExpression))
     }
 
   private def convertLiteral(literal: AnyRef): Value =
