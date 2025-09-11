@@ -5,7 +5,7 @@ import java.lang.{ Boolean => JBoolean, Double => JDouble }
 import org.nlogo.core.{ CommandBlock => NLCBlock, Expression => NLExpr, LogoList, Nobody, ProcedureDefinition
                       , ReporterApp => NLRApp, ReporterBlock => NLRBlock, Statement => NLStatement }
 
-import org.nlogo.core.prim.{ _callreport => CallReport, _const => Const }
+import org.nlogo.core.prim.{ _abstractlet => AbstractLet, _callreport => CallReport, _const => Const, _let => Let => Multilet }
 
 private[nl2ast] case class Command(name: String)
 private[nl2ast] case class Reporter(name: String)
@@ -26,7 +26,13 @@ private[nl2ast] case class StringVal(value: String) extends Value
 private[nl2ast] case class ListVal(items: Seq[Value]) extends Value
 private[nl2ast] case object NobodyVal extends Value
 
-private[nl2ast] case class Statement(command: Command, args: Seq[Expression])
+private[nl2ast] sealed trait Statement
+private[nl2ast] case class LetBinding(varName: String, value: Expression) extends Statement
+private[nl2ast] case class CommandApp(command: Command, args: Seq[Expression]) extends Statement
+
+private[nl2ast] sealed trait Var
+private[nl2ast] case class SingleVar(name: String) extends Var
+
 private[nl2ast] case class Procedure( name: String, args: Seq[String], returnType: String, agentClass: String
                                     , statements: Seq[Statement])
 private[nl2ast] case class Root(procedures: Seq[Procedure], metaVars: MetaVariables)
@@ -53,7 +59,18 @@ object AST {
   }
 
   private def convertStatement(statement: NLStatement): Statement = {
-    Statement(Command(statement.command.displayName), statement.args.map(convertExpression))
+    val args = statement.args.map(convertExpression)
+    statement.command match {
+      case l: Let =>
+        LetBinding(makeLetVar(l).name, args.head)
+      case _      =>
+        CommandApp(Command(statement.command.displayName), args)
+    }
+  }
+
+  private def makeLetVar(l: Let): SingleVar = {
+    val varName = l.let.map(_.name).getOrElse(throw new Exception("Impossible unnamed `let` binding"))
+    SingleVar(varName)
   }
 
   private def convertExpression(expr: NLExpr): Expression = {
