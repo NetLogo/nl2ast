@@ -135,7 +135,7 @@ object AST {
       case l: LogoList => ListVal(l.toVector.map(convertLiteral).toArray)
       case Nobody      => NobodyVal
       case x =>
-        throw new Exception(s"We don't know how to convert this type of reporter yet: ${x.getClass.getName} | $x")
+        throw new Exception(s"We don't know how to convert this type of literal yet: ${x.getClass.getName} | $x")
     }
 
 }
