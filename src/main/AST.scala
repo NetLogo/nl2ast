@@ -5,7 +5,8 @@ import java.lang.{ Boolean => JBoolean, Double => JDouble }
 import org.nlogo.core.{ CommandBlock => NLCBlock, Expression => NLExpr, LogoList, Nobody, ProcedureDefinition
                       , ReporterApp => NLRApp, ReporterBlock => NLRBlock, Statement => NLStatement }
 
-import org.nlogo.core.prim.{ _abstractlet => AbstractLet, _callreport => CallReport, _const => Const, _let => Let => Multilet }
+import org.nlogo.core.prim.{ _abstractlet => AbstractLet, _callreport => CallReport, _const => Const
+                           , _let => Let, _multilet => Multilet }
 
 private[nl2ast] case class Command(name: String)
 private[nl2ast] case class Reporter(name: String)
@@ -28,10 +29,12 @@ private[nl2ast] case object NobodyVal extends Value
 
 private[nl2ast] sealed trait Statement
 private[nl2ast] case class LetBinding(varName: String, value: Expression) extends Statement
+private[nl2ast] case class MultiletBinding(vars: Seq[Var], value: Expression) extends Statement
 private[nl2ast] case class CommandApp(command: Command, args: Seq[Expression]) extends Statement
 
 private[nl2ast] sealed trait Var
 private[nl2ast] case class SingleVar(name: String) extends Var
+private[nl2ast] case class MultiVar(vars: Seq[Var]) extends Var
 
 private[nl2ast] case class Procedure( name: String, args: Seq[String], returnType: String, agentClass: String
                                     , statements: Seq[Statement])
@@ -45,7 +48,7 @@ object AST {
 
   private def convertProcedure(procDef: ProcedureDefinition): Procedure = {
 
-    val statements = procDef.statements.stmts.map(convertStatement)
+    val statements = processStatements(procDef.statements.stmts)
 
     val proc = procDef.procedure
 
@@ -58,15 +61,48 @@ object AST {
 
   }
 
-  private def convertStatement(statement: NLStatement): Statement = {
+  // Essentially: When we have the code `to my-procedure let [x y] [1 2] end`, the NL parser emits the AST:
+  // `my-procedure [(_multilet [x y] [1 2]) (_let x x) (_let y y)]`.  Why?  I don't entirely know.  But
+  // I don't think it's entirely appropriate to have these redundant `let`s here, so this function's
+  // purpose is to remove them. --Jason B. (9/11/25)
+  private def processStatements(statements: Seq[NLStatement]): Seq[Statement] =
+    statements.foldLeft((Seq[Statement](), Set[String]())) {
+      case ((acc, names), statement) =>
+        val (converted, additionalNames) = convertStatement(statement)
+        val combinedNames                = names ++ additionalNames
+        converted match {
+          case l: LetBinding if combinedNames.contains(l.varName) => (acc     , combinedNames - l.varName)
+          case x                                                  => (acc :+ x, combinedNames)
+        }
+    }._1
+
+  private def convertStatement(statement: NLStatement): (Statement, Set[String]) = {
     val args = statement.args.map(convertExpression)
     statement.command match {
       case l: Let =>
-        LetBinding(makeLetVar(l).name, args.head)
+        (LetBinding(makeLetVar(l).name, args.head), Set())
+      case ml: Multilet =>
+        val vars  = ml.lets.map(convertMultiVar)
+        val names = vars.foldLeft(Set[String]()) { case (acc, v) => extractVarNames(v, acc) }
+        (MultiletBinding(vars, args.head), names)
       case _      =>
-        CommandApp(Command(statement.command.displayName), args)
+        (CommandApp(Command(statement.command.displayName), args), Set())
     }
   }
+
+  private def extractVarNames(vars: Var, acc: Set[String]): Set[String] =
+    vars match {
+      case SingleVar(name) => acc + name
+      case MultiVar(vars)  => vars.foldLeft(acc) { case (bcc, x) => extractVarNames(x, bcc) }
+    }
+
+  private def convertMultiVar(ml: AbstractLet): Var =
+    ml match {
+      case l: Let =>
+        makeLetVar(l)
+      case ml: Multilet =>
+        MultiVar(ml.lets.map(convertMultiVar))
+    }
 
   private def makeLetVar(l: Let): SingleVar = {
     val varName = l.let.map(_.name).getOrElse(throw new Exception("Impossible unnamed `let` binding"))
@@ -75,7 +111,7 @@ object AST {
 
   private def convertExpression(expr: NLExpr): Expression = {
     expr match {
-      case cb: NLCBlock => CommandBlock(cb.statements.stmts.map(convertStatement))
+      case cb: NLCBlock => CommandBlock(processStatements(cb.statements.stmts))
       case rb: NLRBlock => ReporterBlock(convertReporterApp(rb.app))
       case ra: NLRApp   => convertReporterApp(ra)
     }
