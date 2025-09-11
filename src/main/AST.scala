@@ -6,7 +6,7 @@ import org.nlogo.core.{ CommandBlock => NLCBlock, Expression => NLExpr, LogoList
                       , ReporterApp => NLRApp, ReporterBlock => NLRBlock, Statement => NLStatement }
 
 import org.nlogo.core.prim.{ _abstractlet => AbstractLet, _callreport => CallReport, _const => Const
-                           , _let => Let, _multilet => Multilet }
+                           , _let => Let, _multiassignnest => MultiletNest, _multilet => Multilet }
 
 private[nl2ast] case class Command(name: String)
 private[nl2ast] case class Reporter(name: String)
@@ -68,25 +68,29 @@ object AST {
   private def processStatements(statements: Seq[NLStatement]): Seq[Statement] =
     statements.foldLeft((Seq[Statement](), Set[String]())) {
       case ((acc, names), statement) =>
-        val (converted, additionalNames) = convertStatement(statement)
-        val combinedNames                = names ++ additionalNames
-        converted match {
-          case l: LetBinding if combinedNames.contains(l.varName) => (acc     , combinedNames - l.varName)
-          case x                                                  => (acc :+ x, combinedNames)
+        convertStatement(statement).fold((acc, names)) {
+          case (converted, additionalNames) =>
+            val combinedNames = names ++ additionalNames
+            converted match {
+              case l: LetBinding if combinedNames.contains(l.varName) => (acc     , combinedNames - l.varName)
+              case x                                                  => (acc :+ x, combinedNames)
+            }
         }
     }._1
 
-  private def convertStatement(statement: NLStatement): (Statement, Set[String]) = {
+  private def convertStatement(statement: NLStatement): Option[(Statement, Set[String])] = {
     val args = statement.args.map(convertExpression)
     statement.command match {
       case l: Let =>
-        (LetBinding(makeLetVar(l).name, args.head), Set())
+        Option((LetBinding(makeLetVar(l).name, args.head), Set()))
       case ml: Multilet =>
         val vars  = ml.lets.map(convertMultiVar)
         val names = vars.foldLeft(Set[String]()) { case (acc, v) => extractVarNames(v, acc) }
-        (MultiletBinding(vars, args.head), names)
+        Option((MultiletBinding(vars, args.head), names))
+      case _: MultiletNest =>
+        None // Ignore this; I don't know why it's in the AST --Jason B. (9/11/25)
       case _      =>
-        (CommandApp(Command(statement.command.displayName), args), Set())
+        Option((CommandApp(Command(statement.command.displayName), args), Set()))
     }
   }
 
