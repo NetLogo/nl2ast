@@ -41,12 +41,59 @@ private[nl2ast] case class MultiVar(vars: Seq[Var]) extends Var
 
 private[nl2ast] case class Procedure( name: String, args: Seq[String], returnType: String, agentClass: String
                                     , statements: Seq[Statement])
-private[nl2ast] case class Root(procedures: Seq[Procedure], metaVars: MetaVariables)
+
+private[nl2ast] case class WidgetProcedure(returnType: String, agentClass: String, statements: Seq[Statement])
+
+private case class Pen(name: String, setup: WidgetProcedure, update: WidgetProcedure)
+
+private[nl2ast] sealed trait ASTWidget { def index: Int }
+private[nl2ast] case class Button(override val index: Int, onClick: WidgetProcedure) extends ASTWidget
+private[nl2ast] case class Monitor(override val index: Int, getValue: WidgetProcedure) extends ASTWidget
+private[nl2ast] case class Slider( override val index: Int, getMin: WidgetProcedure
+                                 , getMax: WidgetProcedure, getStep: WidgetProcedure) extends ASTWidget
+private[nl2ast] case class Plot( override val index: Int, setup: WidgetProcedure
+                               , update: WidgetProcedure, pens: Seq[Pen]) extends ASTWidget
+
+private[nl2ast] case class Root(metaVars: MetaVariables, procedures: Seq[Procedure], widgets: Seq[ASTWidget])
 
 object AST {
 
   def buildFrom(model: Model): Root = {
-    Root(model.procedures.map(convertProcedure), model.metaVars)
+    Root(model.metaVars, model.procedures.map(convertProcedure), model.parsedWidgets.map(convertWidget))
+  }
+
+  private def convertWidget(widget: ParsedWidget): ASTWidget = {
+
+    def conv(procDef: ProcedureDefinition): WidgetProcedure = {
+
+      val proc = convertProcedure(procDef)
+
+      val fakiePrimNames =
+        Set( "__done"
+           , "__linkcode"
+           , "__observercode"
+           , "__patchcode"
+           , "__turtlecode"
+           )
+
+      val statements = proc.statements.filter {
+        case CommandApp(name, _) => !fakiePrimNames.contains(name.toLowerCase())
+        case _                   => true
+      }
+
+      WidgetProcedure(proc.returnType, proc.agentClass, statements)
+
+    }
+
+    widget match {
+      case PostButton (i, p)          => Button (i, conv(p))
+      case PostMonitor(i, p)          => Monitor(i, conv(p))
+      case PostSlider (i, np, xp, sp) => Slider (i, conv(np), conv(xp), conv(sp))
+      case PostPlot   (i, sp, up, ps) =>
+        val pens = ps.map((pen) => Pen(pen.name, conv(pen.setupDef), conv(pen.updateDef)))
+        Plot(i, conv(sp), conv(up), pens)
+    }
+
   }
 
   private def convertProcedure(procDef: ProcedureDefinition): Procedure = {
