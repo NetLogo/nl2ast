@@ -3,7 +3,7 @@ package org.nlogo.nl2ast
 import java.io.{ File, FileOutputStream, PrintStream }
 import java.net.URI
 
-import scala.collection.immutable.{ ListMap, Map => IMap }
+import scala.collection.immutable.ListMap
 import scala.io.Source
 
 import play.api.libs.json.{ JsArray, Json, JsObject, JsString, JsValue }
@@ -147,9 +147,9 @@ object NL2AST {
       case JsObject(mappings) =>
         val refinedMappings =
           mappings.get("_type").fold(mappings) {
-            typ => IMap(mappings.toSeq*) - "_type" + ("type" -> cleanupTypeOuter(typ))
+            typ => ListMap("type" -> cleanupTypeOuter(typ)) ++ ListMap(mappings.toSeq*) - "_type"
           }
-        JsObject(refinedMappings.view.mapValues(cleanupJSON).toMap)
+        JsObject(ListMap(refinedMappings.view.mapValues(cleanupJSON).toSeq*))
       case x =>
         x
     }
