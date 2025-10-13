@@ -11,16 +11,6 @@ import org.nlogo.parse.{ CompilerUtilities, FrontEnd }
 
 private type ProcDef = ProcedureDefinition
 
-private case class PrePen(name: String, setupCode: String, updateCode: String)
-
-private sealed trait PreWidget { def index: Int }
-private case class PreButton(override val index: Int, code: String, kind: AgentKind) extends PreWidget
-private case class PreMonitor(override val index: Int, code: String) extends PreWidget
-private case class PreSlider( override val index: Int, minCode: String, maxCode: String
-                            , stepCode: String) extends PreWidget
-private case class PrePlot( override val index: Int, setupCode: String, updateCode: String
-                          , pens: Seq[PrePen]) extends PreWidget
-
 private case class PostPen(name: String, setupDef: ProcDef, updateDef: ProcDef)
 
 private[nl2ast] sealed trait ParsedWidget { def index: Int }
@@ -95,27 +85,20 @@ object Preprocessing {
     }
 
     widgets.zipWithIndex.collect {
-      case (b: CoreButton , i) if !b.source.isEmpty => PreButton (i, b.source.get, b.buttonKind)
-      case (m: CoreMonitor, i) if !m.source.isEmpty => PreMonitor(i, m.source.get)
-      case (s: CoreSlider , i)                      => PreSlider (i, s.min, s.max, s.step)
+      case (b: CoreButton , i) if !b.source.isEmpty =>
+        PostButton(i, parse(b.source.get, Command, b.buttonKind))
+      case (m: CoreMonitor, i) if !m.source.isEmpty =>
+        PostMonitor(i, parse(m.source.get, Reporter))
+      case (s: CoreSlider , i)                      =>
+        val p = (f: (CoreSlider) => String) => parse(f(s), Reporter)
+        PostSlider(i, p(_.min), p(_.max), p(_.step))
       case (p: CorePlot   , i) =>
-        val pens = p.pens.map(pen => PrePen(pen.display, pen.setupCode, pen.updateCode))
-        PrePlot(i, p.setupCode, p.updateCode, pens)
-    }.map {
-      case b: PreButton =>
-        PostButton(b.index, parse(b.code, Command, b.kind))
-      case m: PreMonitor =>
-        PostMonitor(m.index, parse(m.code, Reporter))
-      case s: PreSlider =>
-        val p = (f: (PreSlider) => String) => parse(f(s), Reporter)
-        PostSlider(s.index, p(_.minCode), p(_.maxCode), p(_.stepCode))
-      case p: PrePlot =>
         val f = (code: String) => parse(code, Command)
         val pens =
           p.pens.map(
-            pen => PostPen(pen.name, f(pen.setupCode), f(pen.updateCode))
+            pen => PostPen(pen.display, f(pen.setupCode), f(pen.updateCode))
           )
-        PostPlot(p.index, f(p.setupCode), f(p.updateCode), pens)
+        PostPlot(i, f(p.setupCode), f(p.updateCode), pens)
     }
 
   }
