@@ -16,7 +16,7 @@ object NL2AST {
 
     val (inURI, outOpt) = parseArgs(args).getOrElse { System.exit(1); ??? }
 
-    val out = inURI |> slurpURI |> Preprocessing.parse |> AST.buildFrom |> Postprocessing.serialize
+    val out = inURI |> slurpURI |> Parser.apply |> AST.buildFrom |> Serializer.apply
 
     val outStream = outOpt.fold(System.out)(_ |> (new FileOutputStream(_)) |> (new PrintStream(_)))
     outStream.println(out)

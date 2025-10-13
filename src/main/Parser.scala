@@ -27,9 +27,9 @@ private[nl2ast] case class MetaVariables( globals: Seq[String], turtleVars: Seq[
 private[nl2ast] case class Model( metaVars: MetaVariables, procedures: Seq[ProcedureDefinition]
                                 , parsedWidgets: Seq[ParsedWidget])
 
-object Preprocessing {
+object Parser {
 
-  def parse(text: String): Model = {
+  def apply(text: String): Model = {
 
     val modelOpt =
       if (text.split("@#\\$#@#\\$#@").length == 12) {                             // .nlogo

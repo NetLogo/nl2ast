@@ -4,9 +4,9 @@ import scala.collection.immutable.ListMap
 
 import play.api.libs.json.{ JsArray, Json, JsObject, JsString, JsValue }
 
-object Postprocessing {
+object Serializer {
 
-  def serialize(ast: Root): String =
+  def apply(ast: Root): String =
     ast |> ast2JSON |> cleanupJSON |> Json.stringify
 
   private def ast2JSON(root: Root): JsValue = {
