@@ -90,7 +90,7 @@ object AST {
       case ParsedMonitor(i, p)          => Monitor(i, conv(p))
       case ParsedSlider (i, np, xp, sp) => Slider (i, conv(np), conv(xp), conv(sp))
       case ParsedPlot   (i, sp, up, ps) =>
-        val pens = ps.map((pen) => Pen(pen.name, conv(pen.setupDef), conv(pen.updateDef)))
+        val pens = ps.map { case ParsedPen(name, sp, up) => Pen(name, conv(sp), conv(up)) }
         Plot(i, conv(sp), conv(up), pens)
     }
 
