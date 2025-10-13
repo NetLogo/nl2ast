@@ -11,15 +11,15 @@ import org.nlogo.parse.{ CompilerUtilities, FrontEnd }
 
 private type ProcDef = ProcedureDefinition
 
-private case class PostPen(name: String, setupDef: ProcDef, updateDef: ProcDef)
+private case class ParsedPen(name: String, setupDef: ProcDef, updateDef: ProcDef)
 
 private[nl2ast] sealed trait ParsedWidget { def index: Int }
-private[nl2ast] case class PostButton(override val index: Int, `def`: ProcDef) extends ParsedWidget
-private[nl2ast] case class PostMonitor(override val index: Int, `def`: ProcDef) extends ParsedWidget
-private[nl2ast] case class PostSlider( override val index: Int, minDef: ProcDef, maxDef: ProcDef
+private[nl2ast] case class ParsedButton(override val index: Int, `def`: ProcDef) extends ParsedWidget
+private[nl2ast] case class ParsedMonitor(override val index: Int, `def`: ProcDef) extends ParsedWidget
+private[nl2ast] case class ParsedSlider( override val index: Int, minDef: ProcDef, maxDef: ProcDef
                                        , stepDef: ProcDef) extends ParsedWidget
-private[nl2ast] case class PostPlot( override val index: Int, setupDef: ProcDef, updateDef: ProcDef
-                                     , pens: Seq[PostPen]) extends ParsedWidget
+private[nl2ast] case class ParsedPlot( override val index: Int, setupDef: ProcDef, updateDef: ProcDef
+                                     , pens: Seq[ParsedPen]) extends ParsedWidget
 
 private[nl2ast] case class MetaVariables( globals: Seq[String], turtleVars: Seq[String], patchVars: Seq[String]
                                         , linkVars: Seq[String])
@@ -85,20 +85,15 @@ object Preprocessing {
     }
 
     widgets.zipWithIndex.collect {
-      case (b: CoreButton , i) if !b.source.isEmpty =>
-        PostButton(i, parse(b.source.get, Command, b.buttonKind))
-      case (m: CoreMonitor, i) if !m.source.isEmpty =>
-        PostMonitor(i, parse(m.source.get, Reporter))
+      case (b: CoreButton , i) if !b.source.isEmpty => ParsedButton (i, parse(b.source.get, Command, b.buttonKind))
+      case (m: CoreMonitor, i) if !m.source.isEmpty => ParsedMonitor(i, parse(m.source.get, Reporter))
       case (s: CoreSlider , i)                      =>
         val p = (f: (CoreSlider) => String) => parse(f(s), Reporter)
-        PostSlider(i, p(_.min), p(_.max), p(_.step))
+        ParsedSlider(i, p(_.min), p(_.max), p(_.step))
       case (p: CorePlot   , i) =>
-        val f = (code: String) => parse(code, Command)
-        val pens =
-          p.pens.map(
-            pen => PostPen(pen.display, f(pen.setupCode), f(pen.updateCode))
-          )
-        PostPlot(i, f(p.setupCode), f(p.updateCode), pens)
+        val f    = (code: String) => parse(code, Command)
+        val pens = p.pens.map(pen => ParsedPen(pen.display, f(pen.setupCode), f(pen.updateCode)))
+        ParsedPlot(i, f(p.setupCode), f(p.updateCode), pens)
     }
 
   }
