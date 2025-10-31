@@ -5,12 +5,13 @@ import java.lang.{ Boolean => JBoolean, Double => JDouble }
 import org.nlogo.core.{ CommandBlock => NLCBlock, Expression => NLExpr, LogoList, Nobody, ProcedureDefinition
                       , ReporterApp => NLRApp, ReporterBlock => NLRBlock, Statement => NLStatement }
 
-import org.nlogo.core.prim.{ _abstractlet => AbstractLet, _callreport => CallReport, _const => Const
-                           , _let => Let, _lambdavariable => LambdaVariable, _letvariable => LetVariable
-                           , _linkvariable => LinkVariable, _multiassignnest => MultiletNest
-                           , _multilet => Multilet, _patchvariable => PatchVariable
-                           , _observervariable => ObserverVariable, _procedurevariable => ProcedureVariable
-                           , _turtlevariable => TurtleVariable, _turtleorlinkvariable => TurtleOrLinkVariable }
+import org.nlogo.core.prim.{ _abstractlet => AbstractLet, _call => CallCommand, _callreport => CallReport
+                           , _const => Const, _let => Let, _lambdavariable => LambdaVariable
+                           , _letvariable => LetVariable, _linkvariable => LinkVariable
+                           , _multiassignnest => MultiletNest, _multilet => Multilet
+                           , _patchvariable => PatchVariable, _observervariable => ObserverVariable
+                           , _procedurevariable => ProcedureVariable, _turtlevariable => TurtleVariable
+                           , _turtleorlinkvariable => TurtleOrLinkVariable }
 
 private[nl2ast] sealed trait Expression
 private[nl2ast] case class CommandBlock(statements: Seq[Statement]) extends Expression
@@ -40,7 +41,10 @@ private[nl2ast] case object NobodyVal extends Value
 private[nl2ast] sealed trait Statement
 private[nl2ast] case class LetBinding(varName: String, value: Expression) extends Statement
 private[nl2ast] case class MultiletBinding(vars: Seq[Var], value: Expression) extends Statement
-private[nl2ast] case class CommandApp(name: String, args: Seq[Expression]) extends Statement
+
+private[nl2ast] sealed trait CommandApp extends Statement { def name: String; def args: Seq[Expression] }
+private[nl2ast] case class CommandProcCall(override val name: String, override val args: Seq[Expression]) extends CommandApp
+private[nl2ast] case class CommandCall(override val name: String, override val args: Seq[Expression]) extends CommandApp
 
 private[nl2ast] sealed trait Var
 private[nl2ast] case class SingleVar(name: String) extends Var
@@ -84,8 +88,8 @@ object AST {
            )
 
       val statements = proc.statements.filter {
-        case CommandApp(name, _) => !fakiePrimNames.contains(name.toLowerCase())
-        case _                   => true
+        case CommandCall(name, _) => !fakiePrimNames.contains(name.toLowerCase())
+        case _                    => true
       }
 
       WidgetProcedure(proc.returnType, proc.agentClass, statements)
@@ -146,8 +150,10 @@ object AST {
         Option((MultiletBinding(vars, args.head), names))
       case _: MultiletNest =>
         None // Ignore this; I don't know why it's in the AST --Jason B. (9/11/25)
-      case _      =>
-        Option((CommandApp(statement.command.displayName, args), Set()))
+      case CallCommand(rawProc) =>
+        Option(CommandProcCall(rawProc.name, args), Set())
+      case _ =>
+        Option((CommandCall(statement.command.displayName, args), Set()))
     }
   }
 
