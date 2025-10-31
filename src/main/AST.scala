@@ -7,8 +7,10 @@ import org.nlogo.core.{ CommandBlock => NLCBlock, Expression => NLExpr, LogoList
 
 import org.nlogo.core.prim.{ _abstractlet => AbstractLet, _callreport => CallReport, _const => Const
                            , _let => Let, _lambdavariable => LambdaVariable, _letvariable => LetVariable
-                           , _multiassignnest => MultiletNest, _multilet => Multilet
-                           , _procedurevariable => ProcedureVariable }
+                           , _linkvariable => LinkVariable, _multiassignnest => MultiletNest
+                           , _multilet => Multilet, _patchvariable => PatchVariable
+                           , _observervariable => ObserverVariable, _procedurevariable => ProcedureVariable
+                           , _turtlevariable => TurtleVariable, _turtleorlinkvariable => TurtleOrLinkVariable }
 
 private[nl2ast] sealed trait Expression
 private[nl2ast] case class CommandBlock(statements: Seq[Statement]) extends Expression
@@ -19,9 +21,14 @@ private[nl2ast] case class ReporterProcCall(name: String, args: Seq[Expression])
 private[nl2ast] case class ReporterCall(name: String, args: Seq[Expression]) extends ReporterApp
 
 private[nl2ast] sealed trait VariableReference extends ReporterApp { def name: String }
+private[nl2ast] case class GlobalVar(override val name: String) extends VariableReference
 private[nl2ast] case class LambdaArgRef(override val name: String) extends VariableReference
 private[nl2ast] case class LetRef(override val name: String) extends VariableReference
+private[nl2ast] case class LinkVar(override val name: String) extends VariableReference
+private[nl2ast] case class PatchVar(override val name: String) extends VariableReference
 private[nl2ast] case class ProcedureArgRef(override val name: String) extends VariableReference
+private[nl2ast] case class TurtleVar(override val name: String) extends VariableReference
+private[nl2ast] case class TurtleOrLinkVar(override val name: String) extends VariableReference
 
 private[nl2ast] sealed trait Value extends ReporterApp
 private[nl2ast] case class BooleanVal(value: Boolean) extends Value
@@ -171,12 +178,17 @@ object AST {
 
   private def convertReporterApp(rApp: NLRApp): ReporterApp =
     rApp.reporter match {
-      case const:  Const             => convertLiteral(const.value)
-      case letVar: LetVariable       => LetRef(letVar.let.name)
-      case lvar:   LambdaVariable    => LambdaArgRef(lvar.name)
-      case pvar:   ProcedureVariable => ProcedureArgRef(pvar.name)
-      case _:      CallReport        => ReporterProcCall(rApp.reporter.displayName, rApp.args.map(convertExpression))
-      case _                         => ReporterCall(    rApp.reporter.displayName, rApp.args.map(convertExpression))
+      case const:  Const                => convertLiteral(const.value)
+      case letVar: LetVariable          => LetRef(letVar.let.name)
+      case lvar:   LambdaVariable       => LambdaArgRef(lvar.name)
+      case lvar:   LinkVariable         => LinkVar(lvar.displayName)
+      case global: ObserverVariable     => GlobalVar(global.displayName)
+      case pvar:   PatchVariable        => PatchVar(pvar.displayName)
+      case pvar:   ProcedureVariable    => ProcedureArgRef(pvar.name)
+      case tvar:   TurtleVariable       => TurtleVar(tvar.displayName)
+      case tlvar:  TurtleOrLinkVariable => TurtleOrLinkVar(tlvar.displayName)
+      case _:      CallReport           => ReporterProcCall(rApp.reporter.displayName, rApp.args.map(convertExpression))
+      case _                            => ReporterCall(    rApp.reporter.displayName, rApp.args.map(convertExpression))
     }
 
   private def convertLiteral(literal: AnyRef): Value =
