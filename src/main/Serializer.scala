@@ -2,7 +2,7 @@ package org.nlogo.nl2ast
 
 import scala.collection.immutable.ListMap
 
-import play.api.libs.json.{ JsArray, Json, JsObject, JsString, JsValue }
+import play.api.libs.json.{ JsArray, Json, JsObject, JsString, JsValue, Writes }
 
 object Serializer {
 
@@ -29,7 +29,6 @@ object Serializer {
     implicit lazy val stringValFormat        = Json.writes[StringVal]
     implicit lazy val listValFormat          = Json.writes[ListVal]
     implicit lazy val nobodyValFormat        = Json.writes[NobodyVal.type]
-    implicit lazy val cBlockFormat           = Json.writes[CommandBlock]
     implicit lazy val rBlockFormat           = Json.writes[ReporterBlock]
     implicit lazy val rAppFormat             = Json.writes[ReporterApp]
     implicit lazy val expressionFormat       = Json.writes[Expression]
@@ -51,6 +50,18 @@ object Serializer {
     implicit lazy val astPlotFormat          = Json.writes[Plot]
     implicit lazy val metaVarsFormat         = Json.writes[MetaVariables]
     implicit lazy val rootFormat             = Json.writes[Root]
+
+    // Play JSON only adds `_type` automatically if there's any question (at the type level)
+    // about how the value might be typed.  Many fields that could have `CommandBlock`s can *only*
+    // ever have `CommandBlock`s in them, so Play JSON skips writing the `_type`.  But we want
+    // it in the output, so we manually put it into the JSON.  --Jason B. (11/10/25)
+    implicit lazy val cBlockFormat: Writes[CommandBlock] =
+      Json.writes[CommandBlock].transform {
+        case JsObject(mappings) =>
+          val nonOptionalType  = mappings.getOrElse("_type", JsString("command-block"))
+          val mappingsWithType = mappings.concat(Map("_type" -> nonOptionalType))
+          JsObject(mappingsWithType)
+      }
 
     Json.toJson(root)
 

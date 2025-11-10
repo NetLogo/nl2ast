@@ -51,9 +51,9 @@ private[nl2ast] case class SingleVar(name: String) extends Var
 private[nl2ast] case class MultiVar(vars: Seq[Var]) extends Var
 
 private[nl2ast] case class Procedure( name: String, args: Seq[String], returnType: String, agentClass: String
-                                    , statements: Seq[Statement])
+                                    , body: CommandBlock)
 
-private[nl2ast] case class WidgetProcedure(returnType: String, agentClass: String, statements: Seq[Statement])
+private[nl2ast] case class WidgetProcedure(returnType: String, agentClass: String, body: CommandBlock)
 
 private case class Pen(name: String, setup: WidgetProcedure, update: WidgetProcedure)
 
@@ -87,12 +87,14 @@ object AST {
            , "__turtlecode"
            )
 
-      val statements = proc.statements.filter {
+      val statements = proc.body.statements.filter {
         case CommandCall(name, _) => !fakiePrimNames.contains(name.toLowerCase())
         case _                    => true
       }
 
-      WidgetProcedure(proc.returnType, proc.agentClass, statements)
+      val newBlockOnTheBlock = proc.body.copy(statements = statements)
+
+      WidgetProcedure(proc.returnType, proc.agentClass, newBlockOnTheBlock)
 
     }
 
@@ -117,7 +119,7 @@ object AST {
              , proc.args
              , if (proc.isReporter) "wildcard" else "unit"
              , proc.agentClassString
-             , statements
+             , CommandBlock(statements)
              )
 
   }
