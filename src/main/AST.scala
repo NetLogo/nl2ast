@@ -60,8 +60,9 @@ private case class Pen(name: String, setup: WidgetProcedure, update: WidgetProce
 private[nl2ast] sealed trait ASTWidget { def index: Int }
 private[nl2ast] case class Button(override val index: Int, onClick: WidgetProcedure) extends ASTWidget
 private[nl2ast] case class Monitor(override val index: Int, getValue: WidgetProcedure) extends ASTWidget
-private[nl2ast] case class Slider( override val index: Int, getMin: WidgetProcedure
-                                 , getMax: WidgetProcedure, getStep: WidgetProcedure) extends ASTWidget
+private[nl2ast] case class Slider( override val index: Int, varName: Option[String]
+                                 , getMin: WidgetProcedure, getMax: WidgetProcedure
+                                 , getStep: WidgetProcedure) extends ASTWidget
 private[nl2ast] case class Plot( override val index: Int, setup: WidgetProcedure
                                , update: WidgetProcedure, pens: Seq[Pen]) extends ASTWidget
 
@@ -99,10 +100,10 @@ object AST {
     }
 
     widget match {
-      case ParsedButton (i, p)          => Button (i, conv(p))
-      case ParsedMonitor(i, p)          => Monitor(i, conv(p))
-      case ParsedSlider (i, np, xp, sp) => Slider (i, conv(np), conv(xp), conv(sp))
-      case ParsedPlot   (i, sp, up, ps) =>
+      case ParsedButton (i, p)              => Button (i, conv(p))
+      case ParsedMonitor(i, p)              => Monitor(i, conv(p))
+      case ParsedSlider (i, vn, np, xp, sp) => Slider (i, vn, conv(np), conv(xp), conv(sp))
+      case ParsedPlot   (i,     sp, up, ps) =>
         val pens = ps.map { case ParsedPen(name, sp, up) => Pen(name, conv(sp), conv(up)) }
         Plot(i, conv(sp), conv(up), pens)
     }

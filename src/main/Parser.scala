@@ -13,11 +13,13 @@ private type ProcDef = ProcedureDefinition
 
 private case class ParsedPen(name: String, setupDef: ProcDef, updateDef: ProcDef)
 
+private[nl2ast] sealed trait ParsedInputty { def varName: Option[String] }
 private[nl2ast] sealed trait ParsedWidget { def index: Int }
 private[nl2ast] case class ParsedButton(override val index: Int, `def`: ProcDef) extends ParsedWidget
 private[nl2ast] case class ParsedMonitor(override val index: Int, `def`: ProcDef) extends ParsedWidget
-private[nl2ast] case class ParsedSlider( override val index: Int, minDef: ProcDef, maxDef: ProcDef
-                                       , stepDef: ProcDef) extends ParsedWidget
+private[nl2ast] case class ParsedSlider( override val index: Int, override val varName: Option[String]
+                                       , minDef: ProcDef, maxDef: ProcDef
+                                       , stepDef: ProcDef) extends ParsedWidget with ParsedInputty
 private[nl2ast] case class ParsedPlot( override val index: Int, setupDef: ProcDef, updateDef: ProcDef
                                      , pens: Seq[ParsedPen]) extends ParsedWidget
 
@@ -89,7 +91,7 @@ object Parser {
       case (m: CoreMonitor, i) if !m.source.isEmpty => ParsedMonitor(i, parse(m.source.get, Reporter))
       case (s: CoreSlider , i)                      =>
         val p = (f: (CoreSlider) => String) => parse(f(s), Reporter)
-        ParsedSlider(i, p(_.min), p(_.max), p(_.step))
+        ParsedSlider(i, s.variable, p(_.min), p(_.max), p(_.step))
       case (p: CorePlot   , i) =>
         val f    = (code: String) => parse(code, Command)
         val pens = p.pens.map(pen => ParsedPen(pen.display, f(pen.setupCode), f(pen.updateCode)))
