@@ -1,7 +1,7 @@
 package org.nlogo.nl2ast
 
 import java.io.{ File, FileOutputStream, PrintStream }
-import java.net.URI
+import java.net.{ URI, URISyntaxException }
 
 import scala.io.Source
 
@@ -32,7 +32,11 @@ object NL2AST {
                            |""".stripMargin)
       None
     } else {
-      val uri = new URI(args(0))
+      val uri =
+        try new URI(args(0))
+        catch {
+          case _: URISyntaxException => new File(args(0)).getAbsoluteFile.toURI
+        }
       val out =
         if (args.length > 1)
           Option(new File(args(1)))
